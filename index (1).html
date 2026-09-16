@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FloodWatch Kenya — Subscriber</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+  --ink:#1B2430; --ink-soft:#55636D; --surface:#F1F4F2; --card:#FFFFFF; --line:#D8E0DD;
+  --brand:#2C6E8E; --brand-dark:#132631;
+  --low:#2F8F5B; --low-bg:#E3F3EA;
+  --watch:#B8790A; --watch-bg:#FBF0D3;
+  --high:#C1552B; --high-bg:#FBE1CF;
+  --severe:#B23A3A; --severe-bg:#F7D9D9;
+}
+html[data-theme="dark"]{
+  --ink:#E9EFEE; --ink-soft:#93A3AA; --surface:#101619; --card:#171F24; --line:#2B363C;
+  --low-bg:#173A29; --watch-bg:#3A2C0E; --high-bg:#3B2013; --severe-bg:#3B1414;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--surface);color:var(--ink);font-size:14px;line-height:1.45;transition:background .2s,color .2s}
+header{background:var(--brand-dark);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+header .brand{font-family:'Spectral',Georgia,serif;font-weight:600;font-size:20px}
+header .tagline{font-size:12px;color:#9FB4BF;margin-left:10px}
+header .hdr-right{display:flex;align-items:center;gap:14px}
+header .live{display:flex;align-items:center;gap:7px;font-size:12px;color:#BFD4DC;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#5FD68A;animation:pulse 2.2s infinite}
+@keyframes pulse{0%{opacity:1}50%{opacity:.35}100%{opacity:1}}
+.icon-btn{background:transparent;border:1px solid #33505C;color:#fff;border-radius:5px;padding:6px 10px;font-size:12px;cursor:pointer;width:auto;margin:0}
+.icon-btn:hover{background:#1C3540}
+.app{display:grid;grid-template-columns:400px 1fr;min-height:calc(100vh - 54px)}
+aside{background:var(--surface);border-right:1px solid var(--line);padding:16px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.map{min-height:calc(100vh - 54px);position:relative}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:14px}
+.card h2{font-size:13px;font-weight:600;color:var(--ink-soft);margin:0 0 10px}
+.muted{color:var(--ink-soft);font-size:12px}
+
+.statusband{border-radius:6px;padding:16px;border-left:6px solid var(--ink-soft);background:var(--card)}
+.statusband.low{border-left-color:var(--low);background:var(--low-bg)}
+.statusband.watch{border-left-color:var(--watch);background:var(--watch-bg)}
+.statusband.high{border-left-color:var(--high);background:var(--high-bg)}
+.statusband.severe{border-left-color:var(--severe);background:var(--severe-bg)}
+.statusband-top{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--ink-soft)}
+.statusband-main{display:flex;align-items:baseline;gap:10px;margin:6px 0 4px}
+.statusband-score{font-family:'Spectral',Georgia,serif;font-weight:700;font-size:42px;line-height:1;color:var(--ink)}
+.statusband-score small{font-size:16px;font-weight:500;color:var(--ink-soft)}
+.statusband-level{font-family:'Spectral',Georgia,serif;font-weight:600;font-size:18px;color:var(--ink)}
+.statusband-action{font-weight:600;margin-top:4px}
+.statusband-conf{margin-top:8px;font-size:12px;color:var(--ink-soft)}
+.statusband-zone{font-size:12px;color:var(--ink-soft);margin-top:2px}
+
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.rowname{font-weight:600;font-size:13px}
+.rowmeta{font-size:12px;color:var(--ink-soft)}
+.tag{display:inline-block;padding:3px 8px;font-size:11px;font-weight:700;border-left:3px solid var(--ink-soft);background:#EEF1F0}
+.tag.low{border-left-color:var(--low);background:var(--low-bg);color:#215E3E}
+.tag.watch{border-left-color:var(--watch);background:var(--watch-bg);color:#7A5107}
+.tag.high{border-left-color:var(--high);background:var(--high-bg);color:#7E3A1C}
+.tag.severe{border-left-color:var(--severe);background:var(--severe-bg);color:#7A2727}
+
+.metric{display:flex;justify-content:space-between;font-size:12.5px;margin:4px 0;color:var(--ink-soft)}
+.metric b{color:var(--ink);font-weight:600}
+ul.drivers{margin:0;padding-left:18px;font-size:13px}
+ul.drivers li{margin:3px 0}
+
+input,select{width:100%;padding:9px 10px;border:1px solid #C7D2CE;border-radius:5px;margin:4px 0;font-family:inherit;font-size:13px;background:var(--card);color:var(--ink)}
+input:focus,select:focus,button:focus{outline:2px solid var(--brand);outline-offset:1px}
+.field-row{display:flex;gap:6px}
+.field-row>*{flex:1}
+button{width:100%;padding:10px;margin-top:8px;border:0;border-radius:5px;background:var(--brand);color:#fff;font-weight:600;font-size:13px;cursor:pointer}
+button:hover{background:var(--brand-dark)}
+button.secondary{background:var(--card);color:var(--brand);border:1px solid var(--brand)}
+button.secondary:hover{background:var(--surface)}
+button.small{width:auto;padding:5px 9px;margin:0;font-size:11px}
+
+.empty{font-size:12.5px;color:var(--ink-soft);padding:6px 0}
+.warning{background:var(--watch-bg);border-left:4px solid var(--watch);padding:11px;font-size:12px;line-height:1.5;border-radius:4px}
+.footer-note{font-size:11px;color:var(--ink-soft);text-align:center}
+details.about{font-size:12.5px;color:var(--ink-soft)}
+details.about summary{cursor:pointer;font-weight:600;color:var(--ink)}
+details.about p{margin:8px 0 0}
+
+.map-legend{background:var(--card);color:var(--ink);padding:9px 11px;border:1px solid var(--line);border-radius:6px;font-size:11.5px;line-height:1.6;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.map-legend .lg-row{display:flex;align-items:center;gap:6px}
+.map-legend .sw{width:10px;height:10px;border-radius:50%;display:inline-block}
+.map-search{position:absolute;top:10px;left:50px;z-index:500;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);max-width:260px}
+.map-search select{margin:0;padding:5px 6px;font-size:12px}
+
+.fab{position:absolute;bottom:18px;left:18px;z-index:600;background:var(--severe);color:#fff;border:0;border-radius:30px;padding:12px 18px;font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.25);cursor:pointer;width:auto;margin:0}
+.fab:hover{background:#961f1f}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,14,17,.55);z-index:2000;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);color:var(--ink);border-radius:8px;max-width:460px;width:100%;max-height:86vh;overflow:auto;padding:20px}
+.modal h3{font-family:'Spectral',Georgia,serif;margin:0 0 4px;font-size:19px}
+.modal .muted{margin-bottom:12px}
+.contact-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.contact-row:first-of-type{border-top:0}
+.contact-row a{color:var(--brand);font-weight:700;text-decoration:none}
+.protocol{margin:10px 0 0;padding-left:18px;font-size:13px}
+.protocol li{margin:5px 0}
+.modal-close{margin-top:14px}
+
+@media(max-width:820px){
+  .app{grid-template-columns:1fr}
+  aside{order:2}
+  .map{order:1;height:46vh;min-height:46vh}
+  .map-search{left:8px;max-width:200px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div><span class="brand">FloodWatch Kenya</span><span class="tagline">Nationwide subscriber decision support · v2.0</span></div>
+  <div class="hdr-right">
+    <button class="icon-btn" id="themeToggle" onclick="toggleTheme()">🌙 Dark</button>
+    <div class="live"><span class="dot"></span><span id="liveLabel">Connecting…</span></div>
+  </div>
+</header>
+
+<div class="app">
+  <aside>
+
+    <div id="statusband" class="statusband low">
+      <div class="statusband-top"><span>Current risk index</span><span id="statusUpdated">—</span></div>
+      <div class="statusband-main">
+        <span class="statusband-score" id="statusScore">—<small>/100</small></span>
+        <span class="statusband-level" id="statusLevel">—</span>
+      </div>
+      <div class="statusband-zone" id="statusZone">Loading nationwide readings…</div>
+      <div class="statusband-action" id="statusAction">Checking conditions…</div>
+      <div class="statusband-conf" id="statusConf">—</div>
+    </div>
+
+    <div class="card">
+      <h2>Why am I seeing this</h2>
+      <ul class="drivers" id="drivers"><li class="empty">Waiting for live data…</li></ul>
+      <div class="metric"><span>Expected window</span><b id="window">—</b></div>
+      <div class="metric"><span>Last 1h / 3h rain (this area)</span><b id="r13">—</b></div>
+      <div class="metric"><span>Next-hour forecast</span><b id="rf">—</b></div>
+      <div class="muted" style="margin-top:6px">Risk is an index built from live per-area rainfall and area susceptibility — not a calibrated flood probability. No live official-warning feed is connected yet; always check KMD and county/national disaster channels directly.</div>
+    </div>
+
+    <div class="card">
+      <h2>My places</h2>
+      <div class="muted">Pin the places you check most, anywhere across Kenya. Live geocoding isn't wired up yet, so match each place to its nearest monitored area.</div>
+      <input id="placeName" placeholder="e.g. Home — South C">
+      <select id="placeZone"></select>
+      <button onclick="addPlace()">Add place</button>
+      <div id="places" style="margin-top:6px"></div>
+    </div>
+
+    <div class="card">
+      <h2>My routes</h2>
+      <div class="muted">Route risk is approximated as the higher reading of your two endpoints until real road-segment geometry is available.</div>
+      <div class="field-row">
+        <select id="routeFrom"></select>
+        <select id="routeTo"></select>
+      </div>
+      <button onclick="addRoute()">Add route</button>
+      <div id="routes" style="margin-top:6px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Report flooding</h2>
+      <div class="muted">Reports are stored on this device only and marked unverified until confirmed — they nudge the local reading but never override official warnings.</div>
+      <button class="secondary" onclick="reportFlood()">Report flooding at my location</button>
+      <div id="reports" style="margin-top:6px"></div>
+    </div>
+
+    <div class="card">
+      <h2>Alerts &amp; sharing</h2>
+      <div class="muted">Pop-up alerts use your browser's notification permission and only fire while this tab is open — see the coverage note below for what real background push would need. WhatsApp sharing opens a pre-filled message for you to send; nothing is sent automatically.</div>
+      <button class="secondary" onclick="enableNotifications()">Enable pop-up alerts</button>
+      <button class="secondary" onclick="shareWhatsApp()">Share current alert via WhatsApp</button>
+    </div>
+
+    <div class="card">
+      <details class="about">
+        <summary>About this map's coverage</summary>
+        <p>Nairobi's 60 areas follow the 2026 Nairobi Rivers Regeneration Programme mapping (five river corridors) plus independent flood-exposure research on Kibera, Mathare, Mukuru and Kariobangi. The remaining 32 areas draw on Kenya Meteorological Department advisories and disaster reporting from the March–May 2024 and March–May 2026 nationwide flood events, covering chronic hotspots (Budalangi, the Kano Plains, the Tana River basin, Garissa) and the 30 counties flagged during the 2026 floods. Rainfall is fetched live per area; historical flood-extent points on the map are Nairobi-only for now. None of this is calibrated hydrological modelling — see "Next production work" in the README.</p>
+      </details>
+    </div>
+
+    <div class="warning">This is decision support, not an emergency service. In an active emergency, follow instructions from KMD, your county government and national emergency authorities — or use the emergency button on the map.</div>
+    <div class="footer-note">Rainfall: Open-Meteo (per area) · Historical floods: Nairobi flood-extent FeatureServer · Satellite basemap: Esri World Imagery</div>
+  </aside>
+
+  <div id="map" class="map">
+    <button class="fab" onclick="openEmergency()">🚨 Emergency</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="emergencyModal">
+  <div class="modal">
+    <h3>Emergency contacts (Kenya, nationwide)</h3>
+    <div class="muted">Tap a number to dial. These are national lines that work anywhere in Kenya with signal.</div>
+    <div class="contact-row"><span>Police / General Emergency</span><a href="tel:999">999</a></div>
+    <div class="contact-row"><span>General Emergency (alt.)</span><a href="tel:112">112</a></div>
+    <div class="contact-row"><span>Safaricom users</span><a href="tel:911">911</a></div>
+    <div class="contact-row"><span>Kenya Red Cross (Ambulance / disaster response)</span><a href="tel:1199">1199</a></div>
+    <div class="contact-row"><span>Kenya Red Cross (alt. line)</span><a href="tel:+254700395395">0700 395 395</a></div>
+    <div class="contact-row"><span>St John Ambulance</span><a href="tel:+254202210000">020 221 0000</a></div>
+    <div class="contact-row"><span>AMREF Flying Doctors (medevac)</span><a href="tel:+254206992299">020 699 2299</a></div>
+    <div class="muted" style="margin-top:12px"><b style="color:var(--ink)">If you're caught in flooding:</b></div>
+    <ul class="protocol">
+      <li>Move to higher ground as soon as water starts rising near you — don't wait to see how high it will get.</li>
+      <li>Never walk or drive through moving water; even shallow fast-moving water can sweep away a person or a vehicle.</li>
+      <li>Stay well away from downed power lines and submerged electrical equipment.</li>
+      <li>If trapped inside a building, move to the highest level and signal for help; avoid sealed attics where rising water could trap you.</li>
+      <li>Keep a charged phone, torch, important documents and a small emergency kit ready during rainy seasons.</li>
+      <li>After water recedes, avoid contact with floodwater where you can, and boil or treat drinking water before use.</li>
+    </ul>
+    <button class="modal-close secondary" onclick="closeEmergency()">Close</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+/* ---------- Zone catalogue ----------
+   Susceptibility values are a first-pass editorial judgment, not calibrated hydrological output.
+   Nairobi zones: 2026 Nairobi Rivers Regeneration Programme mapping + 2024 Space4All urban flooding diagnostic.
+   National zones: Kenya Meteorological Department advisories and disaster reporting on the
+   March-May 2024 and March-May 2026 nationwide flood events (30 counties flagged in 2026 alone).
+------------------------------------------------------------------- */
+const ZONES = [
+  // Nairobi East corridor
+  {name:"Kiambiu", corridor:"Nairobi East corridor", baseline:65, drainage:80, historical:85, riverExposure:75, elevation:20, lat:-1.2864, lon:36.8562},
+  {name:"Dandora", corridor:"Nairobi East corridor", baseline:55, drainage:75, historical:80, riverExposure:70, elevation:25, lat:-1.2591, lon:36.8919},
+  {name:"Kariobangi", corridor:"Nairobi East corridor", baseline:60, drainage:78, historical:82, riverExposure:75, elevation:20, lat:-1.2667, lon:36.8667},
+  {name:"Kayole", corridor:"Nairobi East corridor", baseline:50, drainage:62, historical:58, riverExposure:52, elevation:38, lat:-1.2743, lon:36.9219},
+  {name:"Komarock", corridor:"Nairobi East corridor", baseline:38, drainage:50, historical:45, riverExposure:38, elevation:48, lat:-1.2685, lon:36.9024},
+  {name:"Njiru", corridor:"Nairobi East corridor", baseline:42, drainage:52, historical:45, riverExposure:42, elevation:45, lat:-1.2394, lon:36.9377},
+  {name:"Ruai", corridor:"Nairobi East corridor", baseline:38, drainage:48, historical:40, riverExposure:38, elevation:48, lat:-1.2333, lon:36.9667},
+  {name:"Mwiki", corridor:"Nairobi East corridor", baseline:42, drainage:52, historical:45, riverExposure:42, elevation:45, lat:-1.2167, lon:36.9167},
+  {name:"Donholm", corridor:"Nairobi East corridor", baseline:55, drainage:70, historical:70, riverExposure:55, elevation:35, lat:-1.2921, lon:36.8823},
+  {name:"Savannah", corridor:"Nairobi East corridor", baseline:48, drainage:58, historical:52, riverExposure:48, elevation:40, lat:-1.2860, lon:36.8930},
+  {name:"Tassia", corridor:"Nairobi East corridor", baseline:44, drainage:54, historical:48, riverExposure:44, elevation:42, lat:-1.2960, lon:36.9010},
+  {name:"Fedha", corridor:"Nairobi East corridor", baseline:48, drainage:58, historical:52, riverExposure:48, elevation:38, lat:-1.3010, lon:36.8940},
+  // Nairobi West corridor
+  {name:"Madaraka", corridor:"Nairobi West corridor", baseline:44, drainage:54, historical:48, riverExposure:44, elevation:42, lat:-1.3080, lon:36.8215},
+  {name:"Nairobi West", corridor:"Nairobi West corridor", baseline:40, drainage:50, historical:44, riverExposure:40, elevation:45, lat:-1.3050, lon:36.8180},
+  {name:"Lang'ata", corridor:"Nairobi West corridor", baseline:28, drainage:34, historical:28, riverExposure:28, elevation:55, lat:-1.3600, lon:36.7500},
+  {name:"Kawangware", corridor:"Nairobi West corridor", baseline:55, drainage:70, historical:56, riverExposure:46, elevation:35, lat:-1.2833, lon:36.7500},
+  {name:"Kangemi", corridor:"Nairobi West corridor", baseline:55, drainage:68, historical:56, riverExposure:50, elevation:35, lat:-1.2650, lon:36.7550},
+  {name:"Lavington", corridor:"Nairobi West corridor", baseline:20, drainage:25, historical:20, riverExposure:25, elevation:65, lat:-1.2789, lon:36.7724},
+  {name:"Westlands", corridor:"Nairobi West corridor", baseline:25, drainage:30, historical:25, riverExposure:20, elevation:65, lat:-1.2673, lon:36.8055},
+  {name:"Parklands", corridor:"Nairobi West corridor", baseline:30, drainage:35, historical:30, riverExposure:30, elevation:55, lat:-1.2606, lon:36.8172},
+  {name:"Kitisuru", corridor:"Nairobi West corridor", baseline:15, drainage:20, historical:15, riverExposure:20, elevation:70, lat:-1.2333, lon:36.7833},
+  {name:"Spring Valley", corridor:"Nairobi West corridor", baseline:20, drainage:25, historical:20, riverExposure:25, elevation:65, lat:-1.2550, lon:36.7900},
+  {name:"Kileleshwa", corridor:"Nairobi West corridor", baseline:20, drainage:25, historical:20, riverExposure:25, elevation:60, lat:-1.2833, lon:36.7833},
+  {name:"Chiromo", corridor:"Nairobi West corridor", baseline:32, drainage:38, historical:36, riverExposure:42, elevation:50, lat:-1.2725, lon:36.8080},
+  // Nairobi North corridor
+  {name:"Mathare", corridor:"Nairobi North corridor", baseline:70, drainage:85, historical:90, riverExposure:85, elevation:15, lat:-1.2597, lon:36.8570},
+  {name:"Korogocho", corridor:"Nairobi North corridor", baseline:65, drainage:80, historical:85, riverExposure:80, elevation:18, lat:-1.2500, lon:36.8833},
+  {name:"Lucky Summer", corridor:"Nairobi North corridor", baseline:50, drainage:60, historical:55, riverExposure:50, elevation:35, lat:-1.2450, lon:36.8850},
+  // Nairobi Central corridor
+  {name:"CBD", corridor:"Nairobi Central corridor", baseline:35, drainage:45, historical:40, riverExposure:45, elevation:45, lat:-1.2864, lon:36.8172},
+  {name:"Globe", corridor:"Nairobi Central corridor", baseline:35, drainage:45, historical:40, riverExposure:45, elevation:45, lat:-1.2769, lon:36.8267},
+  {name:"Gikomba", corridor:"Nairobi Central corridor", baseline:50, drainage:62, historical:58, riverExposure:62, elevation:35, lat:-1.2833, lon:36.8306},
+  {name:"Eastleigh", corridor:"Nairobi Central corridor", baseline:45, drainage:55, historical:45, riverExposure:40, elevation:40, lat:-1.2757, lon:36.8496},
+  {name:"Industrial Area", corridor:"Nairobi Central corridor", baseline:55, drainage:70, historical:75, riverExposure:65, elevation:35, lat:-1.3197, lon:36.8514},
+  // Nairobi South corridor
+  {name:"Kilimani", corridor:"Nairobi South corridor", baseline:25, drainage:30, historical:25, riverExposure:30, elevation:55, lat:-1.2921, lon:36.7873},
+  {name:"Kibera", corridor:"Nairobi South corridor", baseline:65, drainage:80, historical:88, riverExposure:78, elevation:18, lat:-1.3133, lon:36.7820},
+  {name:"South C", corridor:"Nairobi South corridor", baseline:60, drainage:80, historical:80, riverExposure:70, elevation:25, lat:-1.3175, lon:36.8280},
+  {name:"South B", corridor:"Nairobi South corridor", baseline:45, drainage:55, historical:50, riverExposure:45, elevation:40, lat:-1.3100, lon:36.8300},
+  {name:"Mukuru Kwa Reuben", corridor:"Nairobi South corridor", baseline:66, drainage:82, historical:85, riverExposure:80, elevation:18, lat:-1.3080, lon:36.8580},
+  {name:"Kwa Njenga", corridor:"Nairobi South corridor", baseline:60, drainage:76, historical:78, riverExposure:74, elevation:20, lat:-1.3100, lon:36.8650},
+  // Other Nairobi areas
+  {name:"Karen", corridor:"Other Nairobi areas", baseline:10, drainage:15, historical:10, riverExposure:15, elevation:75, lat:-1.3197, lon:36.7076},
+  {name:"Runda", corridor:"Other Nairobi areas", baseline:10, drainage:15, historical:10, riverExposure:15, elevation:72, lat:-1.2167, lon:36.8167},
+  {name:"Muthaiga", corridor:"Other Nairobi areas", baseline:15, drainage:20, historical:15, riverExposure:20, elevation:68, lat:-1.2500, lon:36.8167},
+  {name:"Gigiri", corridor:"Other Nairobi areas", baseline:12, drainage:15, historical:10, riverExposure:15, elevation:70, lat:-1.2333, lon:36.8083},
+  {name:"Loresho", corridor:"Other Nairobi areas", baseline:15, drainage:20, historical:15, riverExposure:20, elevation:65, lat:-1.2500, lon:36.7667},
+  {name:"Ridgeways", corridor:"Other Nairobi areas", baseline:15, drainage:20, historical:12, riverExposure:18, elevation:68, lat:-1.2000, lon:36.8500},
+  {name:"Roysambu", corridor:"Other Nairobi areas", baseline:35, drainage:45, historical:35, riverExposure:30, elevation:50, lat:-1.2189, lon:36.8900},
+  {name:"Zimmerman", corridor:"Other Nairobi areas", baseline:35, drainage:45, historical:35, riverExposure:30, elevation:48, lat:-1.2103, lon:36.8967},
+  {name:"Kasarani", corridor:"Other Nairobi areas", baseline:40, drainage:50, historical:40, riverExposure:35, elevation:45, lat:-1.2231, lon:36.8969},
+  {name:"Buruburu", corridor:"Other Nairobi areas", baseline:40, drainage:50, historical:45, riverExposure:40, elevation:42, lat:-1.2833, lon:36.8750},
+  {name:"Umoja", corridor:"Other Nairobi areas", baseline:45, drainage:55, historical:50, riverExposure:45, elevation:38, lat:-1.2789, lon:36.8944},
+  {name:"Embakasi", corridor:"Other Nairobi areas", baseline:50, drainage:60, historical:55, riverExposure:50, elevation:35, lat:-1.3167, lon:36.8944},
+  {name:"Pipeline", corridor:"Other Nairobi areas", baseline:55, drainage:65, historical:55, riverExposure:50, elevation:32, lat:-1.3167, lon:36.9000},
+  {name:"Imara Daima", corridor:"Other Nairobi areas", baseline:55, drainage:65, historical:55, riverExposure:55, elevation:30, lat:-1.3350, lon:36.8850},
+  {name:"Syokimau", corridor:"Other Nairobi areas", baseline:45, drainage:50, historical:45, riverExposure:50, elevation:38, lat:-1.3667, lon:36.9333},
+  {name:"Dagoretti", corridor:"Other Nairobi areas", baseline:40, drainage:50, historical:40, riverExposure:35, elevation:50, lat:-1.2939, lon:36.7419},
+  {name:"Riruta", corridor:"Other Nairobi areas", baseline:40, drainage:50, historical:40, riverExposure:35, elevation:48, lat:-1.2989, lon:36.7367},
+  {name:"Ngong Road", corridor:"Other Nairobi areas", baseline:25, drainage:30, historical:25, riverExposure:30, elevation:55, lat:-1.3000, lon:36.7833},
+  {name:"Ngara", corridor:"Other Nairobi areas", baseline:45, drainage:55, historical:50, riverExposure:50, elevation:42, lat:-1.2764, lon:36.8250},
+  {name:"Pangani", corridor:"Other Nairobi areas", baseline:45, drainage:55, historical:45, riverExposure:45, elevation:42, lat:-1.2694, lon:36.8319},
+  {name:"Highridge", corridor:"Other Nairobi areas", baseline:25, drainage:30, historical:25, riverExposure:25, elevation:58, lat:-1.2611, lon:36.8083},
+  {name:"Uthiru / Kabete", corridor:"Other Nairobi areas", baseline:30, drainage:35, historical:25, riverExposure:25, elevation:55, lat:-1.2603, lon:36.7314},
+  // Nyanza / Lake Basin
+  {name:"Budalangi (Busia)", corridor:"Nyanza / Lake Basin", baseline:60, drainage:55, historical:80, riverExposure:85, elevation:20, lat:0.0800, lon:33.9500},
+  {name:"Ahero / Nyando (Kisumu)", corridor:"Nyanza / Lake Basin", baseline:58, drainage:55, historical:78, riverExposure:82, elevation:20, lat:-0.1758, lon:34.9166},
+  {name:"Kisumu Town", corridor:"Nyanza / Lake Basin", baseline:40, drainage:50, historical:42, riverExposure:40, elevation:45, lat:-0.0917, lon:34.7680},
+  {name:"Homa Bay", corridor:"Nyanza / Lake Basin", baseline:35, drainage:40, historical:35, riverExposure:35, elevation:50, lat:-0.5273, lon:34.4571},
+  {name:"Migori", corridor:"Nyanza / Lake Basin", baseline:32, drainage:38, historical:32, riverExposure:30, elevation:50, lat:-1.0634, lon:34.4731},
+  // Western Kenya
+  {name:"Bungoma", corridor:"Western Kenya", baseline:35, drainage:42, historical:38, riverExposure:32, elevation:48, lat:0.5635, lon:34.5606},
+  // Rift Valley
+  {name:"Eldoret / Uasin Gishu", corridor:"Rift Valley", baseline:38, drainage:45, historical:42, riverExposure:38, elevation:48, lat:0.5143, lon:35.2698},
+  {name:"Nakuru Town", corridor:"Rift Valley", baseline:35, drainage:42, historical:35, riverExposure:30, elevation:50, lat:-0.3031, lon:36.0800},
+  {name:"Naivasha", corridor:"Rift Valley", baseline:32, drainage:38, historical:30, riverExposure:32, elevation:50, lat:-0.7172, lon:36.4310},
+  {name:"Narok (Mai Mahiu corridor)", corridor:"Rift Valley", baseline:40, drainage:42, historical:45, riverExposure:35, elevation:42, lat:-1.0833, lon:35.8667},
+  {name:"Baringo", corridor:"Rift Valley", baseline:35, drainage:38, historical:38, riverExposure:35, elevation:45, lat:0.4919, lon:35.7500},
+  {name:"West Pokot", corridor:"Rift Valley", baseline:35, drainage:38, historical:38, riverExposure:32, elevation:45, lat:1.2394, lon:35.1119},
+  {name:"Elgeyo Marakwet", corridor:"Rift Valley", baseline:30, drainage:35, historical:32, riverExposure:28, elevation:50, lat:0.6717, lon:35.5117},
+  // North Eastern & Northern Kenya
+  {name:"Turkana (Lodwar)", corridor:"North Eastern & Northern Kenya", baseline:40, drainage:35, historical:40, riverExposure:35, elevation:45, lat:3.1167, lon:35.6000},
+  {name:"Marsabit", corridor:"North Eastern & Northern Kenya", baseline:38, drainage:32, historical:35, riverExposure:30, elevation:48, lat:2.3284, lon:37.9899},
+  {name:"Isiolo", corridor:"North Eastern & Northern Kenya", baseline:40, drainage:35, historical:38, riverExposure:35, elevation:45, lat:0.3546, lon:37.5822},
+  {name:"Garissa", corridor:"North Eastern & Northern Kenya", baseline:55, drainage:45, historical:60, riverExposure:65, elevation:25, lat:-0.4569, lon:39.6583},
+  {name:"Wajir", corridor:"North Eastern & Northern Kenya", baseline:42, drainage:35, historical:40, riverExposure:35, elevation:45, lat:1.7471, lon:40.0573},
+  {name:"Mandera", corridor:"North Eastern & Northern Kenya", baseline:42, drainage:35, historical:40, riverExposure:35, elevation:45, lat:3.9366, lon:41.8670},
+  {name:"Tana River (Hola)", corridor:"North Eastern & Northern Kenya", baseline:58, drainage:50, historical:70, riverExposure:80, elevation:20, lat:-1.5000, lon:40.0333},
+  {name:"Tana River (Garsen)", corridor:"North Eastern & Northern Kenya", baseline:58, drainage:50, historical:72, riverExposure:82, elevation:18, lat:-2.2704, lon:40.1189},
+  // Coast
+  {name:"Lamu", corridor:"Coast", baseline:48, drainage:50, historical:50, riverExposure:45, elevation:35, lat:-2.2717, lon:40.9020},
+  {name:"Mombasa", corridor:"Coast", baseline:50, drainage:60, historical:55, riverExposure:40, elevation:35, lat:-4.0435, lon:39.6682},
+  {name:"Kilifi", corridor:"Coast", baseline:45, drainage:52, historical:45, riverExposure:38, elevation:40, lat:-3.6333, lon:39.8500},
+  {name:"Kwale", corridor:"Coast", baseline:42, drainage:48, historical:42, riverExposure:35, elevation:42, lat:-4.1747, lon:39.4522},
+  {name:"Taita Taveta (Voi)", corridor:"Coast", baseline:38, drainage:42, historical:38, riverExposure:35, elevation:45, lat:-3.3961, lon:38.5620},
+  // Central & Eastern Kenya
+  {name:"Kitui", corridor:"Central & Eastern Kenya", baseline:35, drainage:40, historical:35, riverExposure:30, elevation:48, lat:-1.3667, lon:38.0167},
+  {name:"Makueni (Wote)", corridor:"Central & Eastern Kenya", baseline:35, drainage:40, historical:35, riverExposure:30, elevation:48, lat:-1.7833, lon:37.6167},
+  {name:"Kiambu Town", corridor:"Central & Eastern Kenya", baseline:40, drainage:48, historical:40, riverExposure:35, elevation:45, lat:-1.1714, lon:36.8356},
+  {name:"Murang'a", corridor:"Central & Eastern Kenya", baseline:35, drainage:42, historical:35, riverExposure:32, elevation:48, lat:-0.7167, lon:37.1500},
+  {name:"Kirinyaga (Kerugoya)", corridor:"Central & Eastern Kenya", baseline:35, drainage:42, historical:35, riverExposure:32, elevation:48, lat:-0.5000, lon:37.2833},
+  {name:"Kajiado", corridor:"Central & Eastern Kenya", baseline:30, drainage:35, historical:30, riverExposure:28, elevation:52, lat:-1.8500, lon:36.7833},
+];
+const MAP_CENTER = {lat:-0.4, lon:37.4};
+const ARC = "https://services1.arcgis.com/Kw7jGaBPiN3WUAmT/ArcGIS/rest/services/Nairobi_March_Flooded_Areas/FeatureServer/0/query";
+
+/* ---------- Risk engine (ported from risk_engine.py) ---------- */
+function clamp(x, lo=0, hi=100){ return Math.max(lo, Math.min(hi, x)); }
+
+function rainScore(i){
+  const s15 = clamp(i.rain15m/12*100);
+  const s1  = clamp(i.rain1h/35*100);
+  const s3  = clamp(i.rain3h/60*100);
+  const s6  = clamp(i.rain6h/90*100);
+  const s24 = clamp(i.rain24h/150*100);
+  const sf  = clamp(i.forecast1h/35*100) * (0.35 + 0.65*i.rainProbability/100);
+  return 0.25*s15 + 0.30*s1 + 0.18*s3 + 0.10*s6 + 0.07*s24 + 0.10*sf;
+}
+function reportScore(i){
+  const verified = clamp(i.verifiedReports*25);
+  const unverified = clamp(i.communityReports*7);
+  return Math.max(verified, unverified);
+}
+function calculate(zone, i){
+  const r = rainScore(i);
+  const susceptibility = 0.30*zone.baseline + 0.30*zone.drainage + 0.25*zone.historical + 0.10*zone.riverExposure + 0.05*(100-zone.elevation);
+  const reports = reportScore(i);
+  const official = i.officialWarning===0 ? 0 : (i.officialWarning===1 ? 55 : 85);
+  let score = 0.58*r + 0.22*susceptibility + 0.12*reports + 0.08*official;
+
+  const drivers = [];
+  if(i.rain1h>=20) drivers.push("heavy 1-hour rainfall");
+  if(i.rain3h>=40) drivers.push("high 3-hour accumulation");
+  if(i.rain24h>=100) drivers.push("wet antecedent conditions");
+  if(i.verifiedReports) drivers.push(`${i.verifiedReports} verified local report(s)`);
+  else if(i.communityReports) drivers.push(`${i.communityReports} unverified community report(s)`);
+  if(i.officialWarning) drivers.push("official warning/watch");
+  if(zone.historical>=60) drivers.push("historical flood exposure");
+  if(zone.drainage>=60) drivers.push("drainage vulnerability");
+  if(!drivers.length) drivers.push("no significant risk drivers active right now");
+
+  score = Math.round(clamp(score));
+  let level, action;
+  if(score>=80){ level="SEVERE"; action="Avoid exposed low-lying roads and crossings; reroute if possible."; }
+  else if(score>=65){ level="HIGH"; action="Prepare to reroute; avoid known low points and monitor updates."; }
+  else if(score>=45){ level="WATCH"; action="Monitor closely and allow extra travel time."; }
+  else { level="LOW"; action="Normal caution; continue monitoring official warnings."; }
+
+  let confidence = 35;
+  if(i.verifiedReports) confidence += 15;
+  if(i.rain1h>0) confidence += 15;
+  if(i.forecast1h>0) confidence += 10;
+  if(i.officialWarning) confidence += 15;
+  if(i.reportRecencyMinutes!=null && i.reportRecencyMinutes<=30) confidence += 10;
+  confidence = Math.round(clamp(confidence,20,95));
+
+  let windowText;
+  if(i.rain1h>=20 || i.forecast1h>=20) windowText = "next 30–120 minutes";
+  else if(i.rain3h>=40) windowText = "next 1–3 hours";
+  else windowText = "no immediate high-risk window identified";
+
+  return {score, level, action, drivers, confidence, window: windowText};
+}
+function levelClass(level){ return level.toLowerCase(); }
+function colorForLevel(level){
+  return {LOW:"#2F8F5B", WATCH:"#B8790A", HIGH:"#C1552B", SEVERE:"#B23A3A"}[level] || "#55636D";
+}
+
+/* ---------- Live data (per-area, one multi-location request) ---------- */
+async function fetchWeatherAll(){
+  const lats = ZONES.map(z=>z.lat).join(',');
+  const lons = ZONES.map(z=>z.lon).join(',');
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}`
+    + `&hourly=rain,precipitation_probability&minutely_15=precipitation`
+    + `&past_hours=24&forecast_hours=6&past_minutes=60&forecast_minutes=60&timezone=Africa%2FNairobi`;
+  const r = await fetch(url);
+  const data = await r.json();
+  return Array.isArray(data) ? data : ZONES.map(()=>data);
+}
+function hourlySum(d, hours){
+  if(!d || !d.hourly) return 0;
+  const now = Date.now(); let vals = [];
+  d.hourly.time.forEach((t,idx)=>{
+    const ts = new Date(t).getTime();
+    if(ts<=now && now-ts<=hours*3600000) vals.push(+d.hourly.rain[idx]||0);
+  });
+  return vals.reduce((a,b)=>a+b,0);
+}
+function hourlyForecast(d){
+  if(!d || !d.hourly) return {rain:0, prob:0};
+  const now = Date.now();
+  for(let idx=0; idx<d.hourly.time.length; idx++){
+    const ts = new Date(d.hourly.time[idx]).getTime();
+    if(ts>=now-30000) return {rain: +d.hourly.rain[idx]||0, prob: +(d.hourly.precipitation_probability?.[idx])||0};
+  }
+  return {rain:0, prob:0};
+}
+function minutely15Sum(d, minutes){
+  if(!d || !d.minutely_15 || !d.minutely_15.time) return null;
+  const now = Date.now(); let vals = [];
+  d.minutely_15.time.forEach((t,idx)=>{
+    const ts = new Date(t).getTime();
+    if(ts<=now && now-ts<=minutes*60000) vals.push(+d.minutely_15.precipitation[idx]||0);
+  });
+  return vals.reduce((a,b)=>a+b,0);
+}
+
+/* ---------- Local storage state ---------- */
+const load = (k,fallback)=>{ try{ return JSON.parse(localStorage.getItem(k)) ?? fallback; }catch{ return fallback; } };
+const save = (k,v)=> localStorage.setItem(k, JSON.stringify(v));
+
+function reportsForZone(zoneName){
+  const all = load('reports', []);
+  const cutoff = Date.now() - 4*3600000;
+  return all.filter(r=>r.zone===zoneName && r.time>=cutoff);
+}
+function mostRecentReportMinutes(zoneName){
+  const rs = reportsForZone(zoneName);
+  if(!rs.length) return null;
+  const latest = Math.max(...rs.map(r=>r.time));
+  return Math.round((Date.now()-latest)/60000);
+}
+function nearestZone(lat, lon){
+  let best=ZONES[0], bd=Infinity;
+  for(const z of ZONES){
+    const dd = Math.hypot(z.lat-lat, z.lon-lon);
+    if(dd<bd){ bd=dd; best=z; }
+  }
+  return best;
+}
+
+/* ---------- Rendering ---------- */
+let zoneResults = {};   // name -> calculate() result
+let zoneRaw = {};       // name -> {rain1h, rain3h, forecastRain, forecastProb}
+let lastAlertLevel = null;
+
+const map = L.map('map').setView([MAP_CENTER.lat, MAP_CENTER.lon], 6);
+const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);
+const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri'});
+L.control.layers({"Street map": streets, "Satellite": satellite}, null, {position:'topright'}).addTo(map);
+const zoneLayer = L.layerGroup().addTo(map);
+const historyLayer = L.layerGroup().addTo(map);
+const placeLayer = L.layerGroup().addTo(map);
+const reportLayer = L.layerGroup().addTo(map);
+const routeLayer = L.layerGroup().addTo(map);
+
+function groupedOptions(){
+  const byCorridor = new Map();
+  ZONES.forEach(z=>{
+    if(!byCorridor.has(z.corridor)) byCorridor.set(z.corridor, []);
+    byCorridor.get(z.corridor).push(z);
+  });
+  let html = '';
+  byCorridor.forEach((zones, corridor)=>{
+    html += `<optgroup label="${corridor}">` + zones.map(z=>`<option value="${z.name}">${z.name}</option>`).join('') + `</optgroup>`;
+  });
+  return html;
+}
+function populateZoneSelects(){
+  const html = groupedOptions();
+  document.getElementById('placeZone').innerHTML = html;
+  document.getElementById('routeFrom').innerHTML = html;
+  document.getElementById('routeTo').innerHTML = html;
+}
+
+function renderStatus(){
+  const places = load('places', []);
+  let name, res, zoneNote;
+  if(places.length){
+    let best = places[0];
+    places.forEach(p=>{ if(zoneResults[p.zone] && (!zoneResults[best.zone] || zoneResults[p.zone].score>zoneResults[best.zone].score)) best=p; });
+    name = best.zone; res = zoneResults[name];
+    zoneNote = `${name} — highest reading across your saved places.`;
+  } else {
+    name = Object.keys(zoneResults).reduce((a,b)=> zoneResults[b].score>zoneResults[a].score ? b : a);
+    res = zoneResults[name];
+    zoneNote = `${name} — highest reading across all ${ZONES.length} monitored areas.`;
+  }
+  const band = document.getElementById('statusband');
+  band.className = 'statusband ' + levelClass(res.level);
+  document.getElementById('statusScore').innerHTML = res.score + '<small>/100</small>';
+  document.getElementById('statusLevel').textContent = res.level;
+  document.getElementById('statusZone').textContent = zoneNote;
+  document.getElementById('statusAction').textContent = res.action;
+  document.getElementById('statusConf').textContent = `Confidence ${res.confidence}% · Updated ${new Date().toLocaleTimeString()}`;
+  document.getElementById('statusUpdated').textContent = new Date().toLocaleTimeString();
+
+  document.getElementById('drivers').innerHTML = res.drivers.map(d=>`<li>${d}</li>`).join('');
+  document.getElementById('window').textContent = res.window;
+
+  const raw = zoneRaw[name] || {rain1h:0, rain3h:0, forecastRain:0, forecastProb:0};
+  document.getElementById('r13').textContent = `${raw.rain1h.toFixed(1)} mm / ${raw.rain3h.toFixed(1)} mm`;
+  document.getElementById('rf').textContent = `${raw.forecastRain.toFixed(1)} mm (${raw.forecastProb}% chance)`;
+
+  window.__targetZone = {name, res};
+
+  if((res.level==='HIGH' || res.level==='SEVERE') && res.level!==lastAlertLevel){
+    maybeNotify(name, res);
+    if(res.level==='SEVERE') playAlarm();
+  }
+  lastAlertLevel = res.level;
+}
+
+function renderPlaces(){
+  const places = load('places', []);
+  const el = document.getElementById('places');
+  if(!places.length){ el.innerHTML = '<div class="empty">No places saved yet.</div>'; return; }
+  el.innerHTML = places.map(p=>{
+    const res = zoneResults[p.zone];
+    return `<div class="row">
+      <div><div class="rowname">${p.name}</div><div class="rowmeta">${p.zone} · ${res.action}</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="tag ${levelClass(res.level)}">${res.level} ${res.score}</span>
+        <button class="small secondary" onclick="removePlace('${p.id}')">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderRoutes(){
+  const routes = load('routes', []);
+  const el = document.getElementById('routes');
+  if(!routes.length){ el.innerHTML = '<div class="empty">No routes added yet.</div>'; return; }
+  el.innerHTML = routes.map(r=>{
+    const a = zoneResults[r.from], b = zoneResults[r.to];
+    const worst = a.score>=b.score ? a : b;
+    return `<div class="row">
+      <div><div class="rowname">${r.from} → ${r.to}</div><div class="rowmeta">${worst.action}</div></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="tag ${levelClass(worst.level)}">${worst.level} ${worst.score}</span>
+        <button class="small secondary" onclick="removeRoute('${r.id}')">Remove</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderReports(){
+  const all = load('reports', []).sort((a,b)=>b.time-a.time).slice(0,6);
+  const el = document.getElementById('reports');
+  if(!all.length){ el.innerHTML = '<div class="empty">No local reports yet.</div>'; return; }
+  el.innerHTML = all.map(r=>`<div class="row">
+      <div><div class="rowname">${r.zone}</div><div class="rowmeta">Unverified · ${new Date(r.time).toLocaleString()}</div></div>
+    </div>`).join('');
+}
+
+function renderMap(historyPoints){
+  zoneLayer.clearLayers(); placeLayer.clearLayers(); reportLayer.clearLayers(); routeLayer.clearLayers();
+
+  ZONES.forEach(z=>{
+    const res = zoneResults[z.name];
+    if(!res) return;
+    const radius = 6 + (res.score/100)*12;
+    const trafficUrl = `https://www.google.com/maps/@${z.lat},${z.lon},13z/data=!5m1!1e1`;
+    L.circleMarker([z.lat, z.lon], {
+      radius, color: colorForLevel(res.level), fillColor: colorForLevel(res.level), fillOpacity: 0.35, weight: 2
+    }).bindPopup(`<b>${z.name}</b><br><span style="color:#666">${z.corridor}</span><br>${res.level} · ${res.score}/100<br>${res.action}<br><a href="${trafficUrl}" target="_blank" rel="noopener">View live traffic ↗</a>`).addTo(zoneLayer);
+  });
+
+  const places = load('places', []);
+  places.forEach(p=>{
+    const z = ZONES.find(zz=>zz.name===p.zone);
+    if(!z) return;
+    const jitter = (s)=> (s.split('').reduce((a,c)=>a+c.charCodeAt(0),0) % 20 - 10) * 0.0006;
+    const lat = z.lat + jitter(p.id), lon = z.lon + jitter(p.id+'x');
+    L.circleMarker([lat,lon], {radius:7, color:'#132631', fillColor:'#fff', fillOpacity:1, weight:2})
+      .bindPopup(`<b>${p.name}</b><br>Pinned to nearest monitored area: ${p.zone}`).addTo(placeLayer);
+  });
+
+  const routes = load('routes', []);
+  routes.forEach(r=>{
+    const a = ZONES.find(z=>z.name===r.from), b = ZONES.find(z=>z.name===r.to);
+    if(!a||!b) return;
+    const worst = zoneResults[a.name].score >= zoneResults[b.name].score ? zoneResults[a.name] : zoneResults[b.name];
+    L.polyline([[a.lat,a.lon],[b.lat,b.lon]], {color: colorForLevel(worst.level), weight:3, dashArray:'6,6'})
+      .bindPopup(`${r.from} → ${r.to} (approximate — real route geometry not yet available)`).addTo(routeLayer);
+  });
+
+  (load('reports', [])).filter(r=>r.time >= Date.now()-4*3600000 && r.lat).forEach(r=>{
+    L.circleMarker([r.lat,r.lon], {radius:6, color:'#B8790A', fillColor:'#B8790A', fillOpacity:0.8})
+      .bindPopup('Community flood report — unverified').addTo(reportLayer);
+  });
+
+  historyLayer.clearLayers();
+  (historyPoints||[]).forEach(c=>{
+    L.circleMarker([c[1],c[0]], {radius:4, color:'#55636D', fillOpacity:0.5})
+      .bindPopup('Historical flood observation (Nairobi only)<br><small>Timestamp not provided by this layer.</small>').addTo(historyLayer);
+  });
+}
+
+function jumpToZone(name){
+  const z = ZONES.find(zz=>zz.name===name);
+  if(!z) return;
+  map.setView([z.lat, z.lon], 13);
+  const res = zoneResults[z.name];
+  if(res) L.popup().setLatLng([z.lat,z.lon]).setContent(`<b>${z.name}</b><br>${res.level} · ${res.score}/100`).openOn(map);
+}
+
+/* ---------- Theme ---------- */
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeToggle').textContent = t==='dark' ? '☀️ Light' : '🌙 Dark';
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark';
+  save('theme', cur);
+  applyTheme(cur);
+}
+
+/* ---------- Alerts: pop-ups, WhatsApp, alarm ---------- */
+function enableNotifications(){
+  if(!('Notification' in window)){ alert('Pop-up notifications are not supported in this browser.'); return; }
+  Notification.requestPermission().then(p=>{
+    if(p==='granted') new Notification('FloodWatch Kenya', {body:'Pop-up alerts are on. They will fire for HIGH/SEVERE readings while this tab stays open.'});
+    else alert('Notifications were not enabled. You can still check risk levels manually any time.');
+  });
+}
+function maybeNotify(zoneName, res){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  new Notification(`FloodWatch Kenya — ${res.level}`, {body:`${zoneName}: ${res.score}/100. ${res.action}`});
+}
+function playAlarm(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [0,0.3,0.6].forEach(delay=>{
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type='sine'; o.frequency.value=880;
+      o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.15, ctx.currentTime+delay);
+      o.start(ctx.currentTime+delay); o.stop(ctx.currentTime+delay+0.2);
+    });
+  }catch(e){}
+}
+function shareWhatsApp(){
+  const t = window.__targetZone;
+  if(!t){ alert('Still loading current conditions — try again in a moment.'); return; }
+  const msg = `FloodWatch Kenya alert: ${t.name} is at ${t.res.level} (${t.res.score}/100). ${t.res.action} — Expected window: ${t.res.window}.`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+/* ---------- Emergency modal ---------- */
+function openEmergency(){ document.getElementById('emergencyModal').classList.add('open'); }
+function closeEmergency(){ document.getElementById('emergencyModal').classList.remove('open'); }
+
+/* ---------- Actions ---------- */
+function addPlace(){
+  const name = document.getElementById('placeName').value.trim();
+  const zone = document.getElementById('placeZone').value;
+  if(!name) return;
+  const places = load('places', []);
+  places.push({id: 'p'+Date.now(), name, zone});
+  save('places', places);
+  document.getElementById('placeName').value = '';
+  renderPlaces(); renderStatus(); renderMap(window.__lastHistory);
+}
+function removePlace(id){
+  save('places', load('places',[]).filter(p=>p.id!==id));
+  renderPlaces(); renderStatus(); renderMap(window.__lastHistory);
+}
+function addRoute(){
+  const from = document.getElementById('routeFrom').value;
+  const to = document.getElementById('routeTo').value;
+  if(from===to) return;
+  const routes = load('routes', []);
+  routes.push({id:'r'+Date.now(), from, to});
+  save('routes', routes);
+  renderRoutes(); renderMap(window.__lastHistory);
+}
+function removeRoute(id){
+  save('routes', load('routes',[]).filter(r=>r.id!==id));
+  renderRoutes(); renderMap(window.__lastHistory);
+}
+function reportFlood(){
+  if(!navigator.geolocation){ alert('Location is not available on this device.'); return; }
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const {latitude:lat, longitude:lon} = pos.coords;
+    const zone = nearestZone(lat, lon);
+    const reports = load('reports', []);
+    reports.push({zone: zone.name, time: Date.now(), lat, lon});
+    save('reports', reports);
+    renderReports();
+    refresh();
+    alert(`Report recorded for ${zone.name} (unverified). Thank you — this stays on your device until a verification pipeline is connected.`);
+  }, ()=> alert('Please enable location access so the report can be placed on the map.'));
+}
+
+/* ---------- Refresh cycle ---------- */
+async function fetchHistoricalPoints(){
+  try{
+    const p = new URLSearchParams({where:'1=1', outFields:'*', returnGeometry:'true', f:'geojson'});
+    const g = await (await fetch(ARC+'?'+p)).json();
+    return (g.features||[]).map(f=>f.geometry?.coordinates).filter(Boolean);
+  }catch(e){ return []; }
+}
+
+async function refresh(){
+  document.getElementById('liveLabel').textContent = 'Updating…';
+  try{
+    const weatherArr = await fetchWeatherAll();
+    zoneResults = {}; zoneRaw = {};
+    ZONES.forEach((z, idx)=>{
+      const d = weatherArr[idx] || weatherArr[0];
+      const rain1h = hourlySum(d,1), rain3h = hourlySum(d,3), rain6h = hourlySum(d,6), rain24h = hourlySum(d,24);
+      const fc = hourlyForecast(d);
+      const rain15mRaw = minutely15Sum(d,15);
+      const rain15m = rain15mRaw!=null ? rain15mRaw : rain1h/4;
+      const reports = reportsForZone(z.name);
+      const inputs = {
+        rain15m, rain1h, rain3h, rain6h, rain24h,
+        forecast1h: fc.rain, rainProbability: fc.prob,
+        communityReports: reports.length, verifiedReports: 0,
+        officialWarning: 0,
+        reportRecencyMinutes: mostRecentReportMinutes(z.name)
+      };
+      zoneResults[z.name] = calculate(z, inputs);
+      zoneRaw[z.name] = {rain1h, rain3h, forecastRain: fc.rain, forecastProb: fc.prob};
+    });
+
+    renderStatus(); renderPlaces(); renderRoutes(); renderReports();
+
+    const history = await fetchHistoricalPoints();
+    window.__lastHistory = history;
+    renderMap(history);
+
+    document.getElementById('liveLabel').textContent = 'Live';
+  }catch(e){
+    document.getElementById('liveLabel').textContent = 'Data unavailable';
+    document.getElementById('drivers').innerHTML = '<li>Live rainfall data is unavailable right now — showing the last known reading.</li>';
+  }
+}
+
+const legend = L.control({position:'bottomright'});
+legend.onAdd = function(){
+  const div = L.DomUtil.create('div','map-legend');
+  div.innerHTML = `
+    <div class="lg-row"><span class="sw" style="background:#2F8F5B"></span>LOW (0–44)</div>
+    <div class="lg-row"><span class="sw" style="background:#B8790A"></span>WATCH (45–64)</div>
+    <div class="lg-row"><span class="sw" style="background:#C1552B"></span>HIGH (65–79)</div>
+    <div class="lg-row"><span class="sw" style="background:#B23A3A"></span>SEVERE (80–100)</div>`;
+  return div;
+};
+legend.addTo(map);
+
+const searchControl = L.control({position:'topleft'});
+searchControl.onAdd = function(){
+  const div = L.DomUtil.create('div','map-search');
+  div.innerHTML = `<label for="zoneJump" style="display:block;margin-bottom:3px;font-weight:600">Jump to an area</label><select id="zoneJump">${groupedOptions()}</select>`;
+  L.DomEvent.disableClickPropagation(div);
+  return div;
+};
+searchControl.addTo(map);
+
+applyTheme(load('theme','light'));
+populateZoneSelects();
+renderPlaces(); renderRoutes(); renderReports();
+refresh();
+setInterval(refresh, 5*60*1000);
+document.addEventListener('change', e=>{ if(e.target && e.target.id==='zoneJump') jumpToZone(e.target.value); });
+document.getElementById('emergencyModal').addEventListener('click', e=>{ if(e.target.id==='emergencyModal') closeEmergency(); });
+</script>
+</body>
+</html>
